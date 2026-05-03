@@ -41,7 +41,7 @@ kbd { background: #222; padding: 3px 8px; border-radius: 4px; border: 1px solid 
 
 <div class="overlay" id="startScreen">
   <div class="title">🏎️ REAL RACING</div>
-  <div class="subtitle">Circuit Championship • 2 Lap • Realistic 3D</div>
+  <div class="subtitle">Circuit Championship • 2 Lap • Smooth Background</div>
   <button class="btn" id="startBtn">🏁 MULAI BALAP</button>
   <div class="controls">
     <kbd>W</kbd>/<kbd>↑</kbd> Gas &nbsp; <kbd>S</kbd>/<kbd>↓</kbd> Rem<br>
@@ -104,12 +104,9 @@ let bestLap = null;
 let keys = {};
 let trackPoints = [];
 let camera = { x: 0, targetX: 0, y: CAMERA_HEIGHT };
-let currentSection = '';
-let bannerTimer = 0;
-let cornerTimer = 0;
-let exhaustParticles = [];
-let nitroParticles = [];
-let startTime = 0;
+
+// Smooth background scroll offset
+let bgOffset = 0;
 
 // === INPUT ===
 document.addEventListener('keydown', e => {
@@ -183,91 +180,210 @@ function project(p, camX, camY, camZ) {
 function findSegment(z) { return segments[Math.floor(z / SEGMENT_LENGTH) % segments.length]; }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-// === DRAW REALISTIC SKY ===
-function drawSky() {
-  // Sunny sky gradient
-  const g = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
-  g.addColorStop(0, '#1a5fb4');
-  g.addColorStop(0.3, '#3584e4');
-  g.addColorStop(0.7, '#62a0ea');
-  g.addColorStop(1, '#87ceeb');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Sun
-  ctx.fillStyle = '#fff8e1';
-  ctx.shadowColor = '#ffeb3b';
-  ctx.shadowBlur = 60;
-  ctx.beginPath();
-  ctx.arc(canvas.width * 0.75, canvas.height * 0.12, 35, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  
-  // Clouds
-  drawCloud(canvas.width * 0.15, canvas.height * 0.08, 60, 0.7);
-  drawCloud(canvas.width * 0.55, canvas.height * 0.15, 45, 0.5);
-  drawCloud(canvas.width * 0.8, canvas.height * 0.06, 50, 0.6);
-  drawCloud(canvas.width * 0.35, canvas.height * 0.2, 35, 0.4);
-  
-  // Mountains
-  ctx.fillStyle = '#4a7a4a';
-  ctx.beginPath();
-  ctx.moveTo(0, canvas.height * 0.48);
-  for (let x = 0; x <= canvas.width; x += 30) {
-    ctx.lineTo(x, canvas.height * 0.45 - Math.sin(x * 0.005) * 30 - Math.cos(x * 0.012) * 15);
-  }
-  ctx.lineTo(canvas.width, canvas.height * 0.48);
-  ctx.closePath();
-  ctx.fill();
-}
+// === SMOOTH CUBIC INTERPOLATION ===
+function smoothStep(t) { return t * t * (3 - 2 * t); }
 
-function drawCloud(x, y, size, alpha) {
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#fff';
-  for (let i = 0; i < 4; i++) {
+// === DRAW SMOOTH BACKGROUND ===
+function drawSmoothBackground() {
+  const W = canvas.width;
+  const H = canvas.height;
+  const horizonY = H * 0.45;
+  
+  // === SKY GRADIENT (smooth) ===
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+  skyGrad.addColorStop(0, '#1a6dd4');
+  skyGrad.addColorStop(0.2, '#2d8de8');
+  skyGrad.addColorStop(0.5, '#5ba8f0');
+  skyGrad.addColorStop(0.8, '#8ec8f7');
+  skyGrad.addColorStop(1, '#b8ddf9');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, horizonY + 10);
+  
+  // === SUN ===
+  const sunX = W * 0.72;
+  const sunY = H * 0.13;
+  const sunR = 38;
+  
+  // Sun glow layers
+  const glowLayers = [
+    { r: sunR * 4, a: 0.04 },
+    { r: sunR * 3, a: 0.06 },
+    { r: sunR * 2, a: 0.1 },
+    { r: sunR * 1.5, a: 0.15 },
+  ];
+  for (const layer of glowLayers) {
+    const g = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, layer.r);
+    g.addColorStop(0, `rgba(255,250,220,${layer.a})`);
+    g.addColorStop(1, 'rgba(255,250,220,0)');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(x + i * size * 0.4, y + Math.sin(i) * 8, size * (0.3 + i * 0.15), 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, layer.r, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.globalAlpha = 1;
+  
+  // Sun body
+  const sunGrad = ctx.createRadialGradient(sunX - 5, sunY - 5, 0, sunX, sunY, sunR);
+  sunGrad.addColorStop(0, '#fffef0');
+  sunGrad.addColorStop(0.5, '#fff4c4');
+  sunGrad.addColorStop(1, '#ffe082');
+  ctx.fillStyle = sunGrad;
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // === SMOOTH CLOUDS ===
+  drawSmoothClouds(horizonY);
+  
+  // === SMOOTH ROLLING HILLS (3 layers for depth) ===
+  drawSmoothHills(horizonY);
+}
+
+function drawSmoothClouds(horizonY) {
+  const clouds = [
+    { x: 0.08, y: 0.08, scale: 1.0 },
+    { x: 0.25, y: 0.15, scale: 0.7 },
+    { x: 0.45, y: 0.06, scale: 0.9 },
+    { x: 0.62, y: 0.18, scale: 0.6 },
+    { x: 0.78, y: 0.10, scale: 0.8 },
+    { x: 0.92, y: 0.14, scale: 0.5 },
+    { x: 0.15, y: 0.22, scale: 0.55 },
+    { x: 0.55, y: 0.25, scale: 0.45 },
+  ];
+  
+  for (const c of clouds) {
+    const cx = c.x * canvas.width + Math.sin(Date.now() * 0.0001 + c.x * 10) * 10;
+    const cy = c.y * canvas.height;
+    const s = c.scale * 40;
+    
+    // Draw cloud as overlapping smooth circles
+    const circles = [
+      { dx: 0, dy: 0, r: s * 1.0 },
+      { dx: -s * 0.7, dy: s * 0.1, r: s * 0.7 },
+      { dx: s * 0.7, dy: s * 0.05, r: s * 0.65 },
+      { dx: -s * 0.3, dy: -s * 0.3, r: s * 0.6 },
+      { dx: s * 0.35, dy: -s * 0.25, r: s * 0.55 },
+      { dx: 0, dy: -s * 0.4, r: s * 0.5 },
+      { dx: -s * 1.1, dy: s * 0.15, r: s * 0.5 },
+      { dx: s * 1.1, dy: s * 0.1, r: s * 0.45 },
+    ];
+    
+    for (const circ of circles) {
+      const g = ctx.createRadialGradient(
+        cx + circ.dx, cy + circ.dy, 0,
+        cx + circ.dx, cy + circ.dy, circ.r
+      );
+      g.addColorStop(0, 'rgba(255,255,255,0.9)');
+      g.addColorStop(0.6, 'rgba(255,255,255,0.6)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx + circ.dx, cy + circ.dy, circ.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawSmoothHills(horizonY) {
+  const W = canvas.width;
+  
+  // === FAR HILLS (light green, subtle) ===
+  ctx.beginPath();
+  ctx.moveTo(-10, horizonY);
+  for (let x = -10; x <= W + 10; x += 4) {
+    const t = (x + bgOffset * 0.3) / W;
+    // Multiple sine waves for natural look
+    const y = horizonY 
+      - Math.sin(t * Math.PI * 2.5) * 40
+      - Math.sin(t * Math.PI * 5.7 + 1.2) * 20
+      - Math.sin(t * Math.PI * 1.3 + 0.5) * 30
+      - Math.cos(t * Math.PI * 3.2 + 2.1) * 15;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W + 10, horizonY + 10);
+  ctx.lineTo(-10, horizonY + 10);
+  ctx.closePath();
+  
+  const farGrad = ctx.createLinearGradient(0, horizonY - 60, 0, horizonY + 10);
+  farGrad.addColorStop(0, '#7cb87c');
+  farGrad.addColorStop(1, '#5a9e5a');
+  ctx.fillStyle = farGrad;
+  ctx.fill();
+  
+  // === MID HILLS (darker green) ===
+  ctx.beginPath();
+  ctx.moveTo(-10, horizonY);
+  for (let x = -10; x <= W + 10; x += 3) {
+    const t = (x + bgOffset * 0.6) / W;
+    const y = horizonY 
+      - Math.sin(t * Math.PI * 3.2) * 35
+      - Math.sin(t * Math.PI * 6.1 + 0.8) * 18
+      - Math.cos(t * Math.PI * 2.0 + 1.5) * 25;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W + 10, horizonY + 5);
+  ctx.lineTo(-10, horizonY + 5);
+  ctx.closePath();
+  
+  const midGrad = ctx.createLinearGradient(0, horizonY - 50, 0, horizonY + 5);
+  midGrad.addColorStop(0, '#4a8f4a');
+  midGrad.addColorStop(1, '#3a7a3a');
+  ctx.fillStyle = midGrad;
+  ctx.fill();
+  
+  // === NEAR HILLS (darkest green, closest to road) ===
+  ctx.beginPath();
+  ctx.moveTo(-10, horizonY);
+  for (let x = -10; x <= W + 10; x += 2) {
+    const t = (x + bgOffset * 1.0) / W;
+    const y = horizonY 
+      - Math.sin(t * Math.PI * 4.0) * 25
+      - Math.sin(t * Math.PI * 7.3 + 0.3) * 12
+      - Math.cos(t * Math.PI * 2.5 + 0.8) * 15;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W + 10, horizonY + 3);
+  ctx.lineTo(-10, horizonY + 3);
+  ctx.closePath();
+  
+  const nearGrad = ctx.createLinearGradient(0, horizonY - 35, 0, horizonY + 3);
+  nearGrad.addColorStop(0, '#2d6e2d');
+  nearGrad.addColorStop(1, '#245a24');
+  ctx.fillStyle = nearGrad;
+  ctx.fill();
 }
 
 // === DRAW REALISTIC ROAD ===
 function drawRoadSegment(s, p1, p2) {
   const isDark = s.color === 0;
   
-  // Grass
-  const grassColor = isDark ? '#2d6a2e' : '#388e3c';
+  // Grass - smooth green
+  const grassColor = isDark ? '#2d7a2d' : '#3a8a3a';
   ctx.fillStyle = grassColor;
   ctx.fillRect(0, p2.screen.y, canvas.width, p1.screen.y - p2.screen.y);
   
-  // Grass detail (stripes)
-  if (p1.screen.w > 20 && Math.random() > 0.7) {
-    ctx.fillStyle = isDark ? '#1b5e20' : '#2e7d32';
+  // Grass subtle stripes
+  if (p1.screen.w > 20) {
+    const stripeAlpha = isDark ? 0.05 : 0.04;
+    ctx.fillStyle = `rgba(0,0,0,${stripeAlpha})`;
+    const stripeH = (p1.screen.y - p2.screen.y) / 3;
     for (let i = 0; i < 3; i++) {
-      const gx = p1.screen.x + (Math.random() - 0.5) * canvas.width * 0.8;
-      const gy = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y);
-      ctx.fillRect(gx, gy, 2, 2);
+      ctx.fillRect(0, p2.screen.y + i * stripeH, canvas.width, stripeH / 2);
     }
   }
   
-  // Grandstand / Trees on sides
-  if (s.hasGrandstand && p1.screen.w > 10) {
-    drawGrandstand(p1, p2, s);
-  }
-  if (s.hasTrees && p1.screen.w > 15) {
-    drawTrees(p1, p2, s);
-  }
+  // Grandstand / Trees
+  if (s.hasGrandstand && p1.screen.w > 10) drawGrandstand(p1, p2, s);
+  if (s.hasTrees && p1.screen.w > 15) drawTrees(p1, p2, s);
   
-  // Road shoulder / curb
-  ctx.fillStyle = isDark ? '#c62828' : '#ffffff';
-  const curbW = p1.screen.w * 0.06;
-  ctx.fillRect(p1.screen.x - p1.screen.w - curbW, p1.screen.y, curbW * 2, p1.screen.y - p2.screen.y);
-  ctx.fillRect(p1.screen.x + p1.screen.w - curbW, p1.screen.y, curbW * 2, p1.screen.y - p2.screen.y);
+  // Road shoulder / curb (red-white alternating)
+  const curbPhase = Math.floor(s.index / 8) % 2;
+  ctx.fillStyle = curbPhase ? '#e53935' : '#ffffff';
+  const curbW = p1.screen.w * 0.04;
+  ctx.fillRect(p1.screen.x - p1.screen.w - curbW * 1.5, p1.screen.y, curbW * 1.5, p1.screen.y - p2.screen.y);
+  ctx.fillRect(p1.screen.x + p1.screen.w, p1.screen.y, curbW * 1.5, p1.screen.y - p2.screen.y);
   
-  // Road surface - realistic asphalt
-  const roadShade = isDark ? '#3a3a3a' : '#424242';
-  ctx.fillStyle = roadShade;
+  // Road surface
+  ctx.fillStyle = isDark ? '#3a3a3a' : '#424242';
   ctx.beginPath();
   ctx.moveTo(p1.screen.x - p1.screen.w, p1.screen.y);
   ctx.lineTo(p1.screen.x + p1.screen.w, p1.screen.y);
@@ -278,18 +394,18 @@ function drawRoadSegment(s, p1, p2) {
   
   // Road texture
   if (p1.screen.w > 25) {
-    ctx.fillStyle = 'rgba(0,0,0,0.05)';
-    for (let i = 0; i < 8; i++) {
-      const tx = p1.screen.x + (Math.random() - 0.5) * p1.screen.w * 1.8;
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    for (let i = 0; i < 6; i++) {
+      const tx = p1.screen.x + (Math.random() - 0.5) * p1.screen.w * 1.6;
       const ty = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y);
       ctx.fillRect(tx, ty, 1 + Math.random(), 1);
     }
   }
   
-  // Lane markings
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  // Lane markings - dashed white
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.lineWidth = Math.max(1, p1.screen.w * 0.008);
-  ctx.setLineDash([20, 15]);
+  ctx.setLineDash([18, 14]);
   ctx.beginPath();
   ctx.moveTo(p1.screen.x - p1.screen.w / 3, p1.screen.y);
   ctx.lineTo(p2.screen.x - p2.screen.w / 3, p2.screen.y);
@@ -301,17 +417,17 @@ function drawRoadSegment(s, p1, p2) {
   ctx.setLineDash([]);
   
   // Center line
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([15, 15]);
+  ctx.setLineDash([12, 12]);
   ctx.beginPath();
   ctx.moveTo(p1.screen.x, p1.screen.y);
   ctx.lineTo(p2.screen.x, p2.screen.y);
   ctx.stroke();
   ctx.setLineDash([]);
   
-  // Edge lines
-  ctx.strokeStyle = '#fff';
+  // Edge solid white lines
+  ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = Math.max(1, p1.screen.w * 0.005);
   ctx.beginPath();
   ctx.moveTo(p1.screen.x - p1.screen.w, p1.screen.y);
@@ -333,53 +449,59 @@ function drawRoadSegment(s, p1, p2) {
 }
 
 function drawGrandstand(p1, p2, seg) {
-  const sw = p1.screen.w * 0.3;
+  const sw = p1.screen.w * 0.25;
   const sh = p1.screen.y - p2.screen.y;
   
   // Stand structure
-  ctx.fillStyle = '#555';
-  ctx.fillRect(p1.screen.x + p1.screen.w + 5, p1.screen.y - sh * 0.8, sw, sh * 0.8);
-  ctx.fillRect(p1.screen.x - p1.screen.w - sw - 5, p1.screen.y - sh * 0.8, sw, sh * 0.8);
+  ctx.fillStyle = '#666';
+  ctx.fillRect(p1.screen.x + p1.screen.w + 5, p1.screen.y - sh * 0.7, sw, sh * 0.7);
+  ctx.fillRect(p1.screen.x - p1.screen.w - sw - 5, p1.screen.y - sh * 0.7, sw, sh * 0.7);
   
-  // Spectators (colored dots)
-  const colors = ['#e53935','#1e88e5','#43a047','#fdd835','#ff6600','#9c27b0','#fff','#333'];
-  for (let y = p1.screen.y - sh * 0.7; y > p1.screen.y - sh * 0.9; y -= 4) {
-    for (let x = p1.screen.x + p1.screen.w + 8; x < p1.screen.x + p1.screen.w + sw - 3; x += 5) {
-      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-      ctx.fillRect(x, y, 3, 3);
-    }
-    for (let x = p1.screen.x - p1.screen.w - sw + 3; x < p1.screen.x - p1.screen.w - 5; x += 5) {
-      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-      ctx.fillRect(x, y, 3, 3);
+  // Spectators
+  const colors = ['#e53935','#1e88e5','#43a047','#fdd835','#ff6600','#9c27b0','#fff','#555'];
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < Math.floor(sw / 5); col++) {
+      const x = p1.screen.x + p1.screen.w + 8 + col * 5;
+      const y = p1.screen.y - sh * 0.65 + row * 4;
+      if (Math.random() > 0.3) {
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillRect(x, y, 3, 3);
+      }
+      const x2 = p1.screen.x - p1.screen.w - sw + 8 + col * 5;
+      if (Math.random() > 0.3) {
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillRect(x2, y, 3, 3);
+      }
     }
   }
 }
 
 function drawTrees(p1, p2, seg) {
-  const treeH = p1.screen.w * 0.5;
+  const treeH = p1.screen.w * 0.4;
+  if (treeH < 3) return;
   
-  // Left trees
   for (let i = 0; i < 3; i++) {
-    const tx = p1.screen.x - p1.screen.w - 20 - i * 15 - Math.random() * 10;
-    const ty = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y);
-    if (treeH > 5) {
-      // Trunk
-      ctx.fillStyle = '#5d4037';
-      ctx.fillRect(tx - 1, ty - treeH, 3, treeH);
-      // Canopy
-      ctx.fillStyle = '#2e7d32';
-      ctx.beginPath();
-      ctx.arc(tx, ty - treeH, treeH * 0.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#388e3c';
-      ctx.beginPath();
-      ctx.arc(tx + treeH * 0.15, ty - treeH * 0.8, treeH * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    const offset = (Math.sin(i * 3.7 + seg.index * 0.1) * 0.5 + 0.5);
+    const tx = p1.screen.x - p1.screen.w - 15 - offset * 25 - Math.random() * 5;
+    const ty = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y) * 0.5;
+    
+    // Trunk
+    ctx.fillStyle = '#5d4037';
+    ctx.fillRect(tx - 1, ty - treeH, 3, treeH);
+    
+    // Canopy layers
+    ctx.fillStyle = '#2e7d32';
+    ctx.beginPath();
+    ctx.arc(tx, ty - treeH, treeH * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#388e3c';
+    ctx.beginPath();
+    ctx.arc(tx + treeH * 0.12, ty - treeH * 0.85, treeH * 0.25, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-// === DRAW CAR (Realistic Style) ===
+// === DRAW CAR ===
 function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.save();
   ctx.translate(x, y);
@@ -393,7 +515,7 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.ellipse(0, ch * 0.45, cw * 0.7, ch * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Car body - supercar shape
+  // Body
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(cw * 0.45, 0);
@@ -407,7 +529,7 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.closePath();
   ctx.fill();
   
-  // Body highlight
+  // Highlight
   ctx.fillStyle = 'rgba(255,255,255,0.15)';
   ctx.beginPath();
   ctx.moveTo(cw * 0.15, -ch * 0.25);
@@ -427,7 +549,6 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.closePath();
   ctx.fill();
   
-  // Windshield reflection
   ctx.fillStyle = 'rgba(100,200,255,0.3)';
   ctx.beginPath();
   ctx.moveTo(cw * 0.1, -ch * 0.2);
@@ -448,7 +569,7 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   // Rear lights
   ctx.fillStyle = '#ff1744';
   ctx.shadowColor = '#ff1744';
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 5;
   ctx.fillRect(-cw * 0.42, ch * 0.35, cw * 0.12, ch * 0.04);
   ctx.fillRect(cw * 0.3, ch * 0.35, cw * 0.12, ch * 0.04);
   ctx.shadowBlur = 0;
@@ -456,7 +577,7 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   // Headlights
   ctx.fillStyle = '#fff9c4';
   ctx.shadowColor = '#ffeb3b';
-  ctx.shadowBlur = 4;
+  ctx.shadowBlur = 3;
   ctx.fillRect(-cw * 0.42, -ch * 0.25, cw * 0.08, ch * 0.03);
   ctx.fillRect(cw * 0.34, -ch * 0.25, cw * 0.08, ch * 0.03);
   ctx.shadowBlur = 0;
@@ -468,17 +589,17 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.fillRect(-cw * 0.5, ch * 0.2, cw * 0.09, ch * 0.12);
   ctx.fillRect(cw * 0.41, ch * 0.2, cw * 0.09, ch * 0.12);
   
-  // Wheel rims
+  // Rims
   ctx.fillStyle = '#888';
   ctx.fillRect(-cw * 0.5, -ch * 0.02, cw * 0.06, ch * 0.08);
   ctx.fillRect(cw * 0.44, -ch * 0.02, cw * 0.06, ch * 0.08);
   
-  // Nitro flame (player only)
+  // Nitro flame
   if (isPlayer && player.nitroActive) {
     const flameH = ch * (0.2 + Math.random() * 0.3);
     ctx.fillStyle = '#00e5ff';
     ctx.shadowColor = '#00e5ff';
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 18;
     ctx.beginPath();
     ctx.moveTo(-cw * 0.15, ch * 0.5);
     ctx.lineTo(0, ch * 0.5 + flameH);
@@ -498,20 +619,12 @@ function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
   ctx.restore();
 }
 
-// === DRAW PLAYER CAR ===
 function drawPlayerCar() {
   const bounce = Math.sin(Date.now() * 0.012) * 2;
   const lean = player.steer * 0.08;
-  
-  drawRealisticCar(
-    canvas.width / 2 + player.steer * 12,
-    canvas.height - 130 + bounce,
-    50, 35,
-    '#1a237e', 0, true
-  );
+  drawRealisticCar(canvas.width / 2 + player.steer * 12, canvas.height - 130 + bounce, 50, 35, '#1a237e', 0, true);
 }
 
-// === DRAW AI CARS ===
 function drawAI() {
   aiCars.sort((a, b) => {
     let da = (a.z - player.z + trackLen) % trackLen;
@@ -522,94 +635,74 @@ function drawAI() {
   for (const car of aiCars) {
     let relZ = (car.z - player.z + trackLen) % trackLen;
     if (relZ > DRAW_DISTANCE * SEGMENT_LENGTH || relZ < 5) continue;
-
     const seg = findSegment(car.z);
     const scale = CAMERA_DEPTH / relZ;
     const screenX = canvas.width / 2 + scale * (car.x * ROAD_WIDTH - camera.x) * canvas.width / 2;
     const screenY = canvas.height / 2 - scale * (seg.p.world.y - CAMERA_HEIGHT) * canvas.height / 2;
     const spriteW = scale * ROAD_WIDTH * 0.08 * canvas.width / 2;
     const spriteH = spriteW * 0.7;
-
     if (screenY < -50 || screenY > canvas.height + 50 || spriteW < 2) continue;
-    
     drawRealisticCar(screenX, screenY, spriteW, spriteH, car.color, car.carType, false);
   }
 }
 
-// === DRAW SPEEDOMETER ===
+// === HUD ELEMENTS ===
 function drawSpeedometer() {
-  const cx = canvas.width - 90;
-  const cy = canvas.height - 90;
-  const r = 70;
+  const cx = canvas.width - 85;
+  const cy = canvas.height - 85;
+  const r = 65;
+  const speedKmh = Math.round(player.speed / MAX_SPEED * 320);
   
-  // Background
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
   ctx.beginPath();
-  ctx.arc(cx, cy, r + 10, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
   ctx.stroke();
   
   // Speed arc
-  const speedKmh = Math.round(player.speed / MAX_SPEED * 320);
   const speedAngle = (speedKmh / 320) * Math.PI * 1.5;
-  
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.arc(cx, cy, r - 5, Math.PI * 0.75, Math.PI * 2.25);
+  ctx.arc(cx, cy, r - 3, Math.PI * 0.75, Math.PI * 2.25);
   ctx.stroke();
   
-  // Speed color
   let speedColor = '#4caf50';
   if (speedKmh > 200) speedColor = '#ff9800';
   if (speedKmh > 260) speedColor = '#f44336';
-  
   ctx.strokeStyle = speedColor;
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.arc(cx, cy, r - 5, Math.PI * 0.75, Math.PI * 0.75 + speedAngle);
+  ctx.arc(cx, cy, r - 3, Math.PI * 0.75, Math.PI * 0.75 + speedAngle);
   ctx.stroke();
   
-  // Tick marks
+  // Ticks
   for (let i = 0; i <= 8; i++) {
     const angle = Math.PI * 0.75 + (i / 8) * Math.PI * 1.5;
-    const x1 = cx + Math.cos(angle) * (r - 15);
-    const y1 = cy + Math.sin(angle) * (r - 15);
-    const x2 = cx + Math.cos(angle) * (r - 5);
-    const y2 = cy + Math.sin(angle) * (r - 5);
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 2;
+    const outer = r - 12;
+    const inner = r - 3;
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = i % 2 === 0 ? 2 : 1;
     ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
+    ctx.moveTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+    ctx.lineTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
     ctx.stroke();
   }
   
-  // Speed value
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 28px system-ui';
+  ctx.font = 'bold 24px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText(speedKmh, cx, cy + 5);
-  ctx.font = '11px system-ui';
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('KM/H', cx, cy + 22);
-  
-  // Gear
+  ctx.fillText(speedKmh, cx, cy + 3);
+  ctx.font = '10px system-ui';
+  ctx.fillStyle = '#888';
+  ctx.fillText('KM/H', cx, cy + 18);
   ctx.fillStyle = '#ff6600';
-  ctx.font = 'bold 16px system-ui';
-  ctx.fillText('G' + player.gear, cx, cy - 20);
-  
-  // RPM bar
-  const rpm = (speedKmh % 60) / 60;
-  ctx.fillStyle = '#333';
-  ctx.fillRect(cx - 35, cy + 30, 70, 5);
-  ctx.fillStyle = rpm > 0.7 ? '#f44336' : '#4caf50';
-  ctx.fillRect(cx - 35, cy + 30, 70 * rpm, 5);
+  ctx.font = 'bold 14px system-ui';
+  ctx.fillText('G' + player.gear, cx, cy - 18);
 }
 
-// === DRAW POSITION ===
 function drawPosition() {
   const allCars = [player, ...aiCars.map(c => ({...c, isPlayer: false}))];
   allCars.sort((a, b) => {
@@ -617,119 +710,110 @@ function drawPosition() {
     const bPos = b.lap * trackLen + (b.z || 0);
     return bPos - aPos;
   });
-  
   const playerPos = allCars.findIndex(c => c.isPlayer === true) + 1;
-  
   const suffix = playerPos === 1 ? 'ST' : playerPos === 2 ? 'ND' : playerPos === 3 ? 'RD' : 'TH';
   
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(canvas.width - 140, 20, 130, 50);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(canvas.width - 130, 15, 120, 45);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(canvas.width - 140, 20, 130, 50);
+  ctx.strokeRect(canvas.width - 130, 15, 120, 45);
   
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 32px system-ui';
+  ctx.font = 'bold 28px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText(`${playerPos}${suffix}`, canvas.width - 75, 52);
-  ctx.font = '11px system-ui';
-  ctx.fillStyle = '#aaa';
-  ctx.fillText(`/${aiCars.length + 1}`, canvas.width - 75, 68);
+  ctx.fillText(`${playerPos}${suffix}`, canvas.width - 70, 44);
+  ctx.font = '10px system-ui';
+  ctx.fillStyle = '#888';
+  ctx.fillText(`/${aiCars.length + 1}`, canvas.width - 70, 58);
 }
 
-// === DRAW LAP / TIME ===
 function drawLapInfo() {
   const elapsed = ((Date.now() - lapStartTime) / 1000);
   const mins = Math.floor(elapsed / 60);
-  const secs = (elapsed % 60).toFixed(2);
+  const secs = (elapsed % 60).toFixed(2).padStart(5, '0');
   
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(canvas.width - 140, 80, 130, 55);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.strokeRect(canvas.width - 140, 80, 130, 55);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(canvas.width - 130, 68, 120, 45);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeRect(canvas.width - 130, 68, 120, 45);
   
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px system-ui';
+  ctx.font = 'bold 13px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText(`${mins}:${secs.padStart(5, '0')}`, canvas.width - 75, 100);
-  
-  ctx.font = '11px system-ui';
+  ctx.fillText(`${mins}:${secs}`, canvas.width - 70, 85);
+  ctx.font = '10px system-ui';
   ctx.fillStyle = '#ff6600';
-  ctx.fillText(`LAP ${Math.min(player.lap + 1, TOTAL_LAPS)}/${TOTAL_LAPS}`, canvas.width - 75, 120);
+  ctx.fillText(`LAP ${Math.min(player.lap + 1, TOTAL_LAPS)}/${TOTAL_LAPS}`, canvas.width - 70, 102);
 }
 
-// === DRAW LEADERBOARD ===
 function drawLeaderboard() {
   const allRacers = [
     { name: 'YOU', lap: player.lap, z: player.z, color: '#4fc3f7' },
     ...aiCars.map(c => ({ name: c.name, lap: c.lap, z: c.z, color: c.color }))
   ];
-  
   allRacers.sort((a, b) => (b.lap * trackLen + b.z) - (a.lap * trackLen + a.z));
   
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(10, 10, 180, 30 + allRacers.length * 20);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.strokeRect(10, 10, 180, 30 + allRacers.length * 20);
+  const panelH = 28 + Math.min(allRacers.length, 5) * 20;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(10, 10, 170, panelH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(10, 10, 170, panelH);
   
-  ctx.font = 'bold 12px system-ui';
+  ctx.font = 'bold 11px system-ui';
   ctx.fillStyle = '#ff6600';
   ctx.textAlign = 'left';
-  ctx.fillText('LEADERBOARD', 20, 28);
+  ctx.fillText('LEADERBOARD', 18, 26);
   
   for (let i = 0; i < Math.min(allRacers.length, 5); i++) {
     const r = allRacers[i];
     const isPlayer = r.name === 'YOU';
-    ctx.fillStyle = isPlayer ? '#4fc3f7' : '#ccc';
-    ctx.font = isPlayer ? 'bold 11px system-ui' : '11px system-ui';
-    
     const pos = i + 1;
     const suffix = pos === 1 ? 'ST' : pos === 2 ? 'ND' : pos === 3 ? 'RD' : 'TH';
-    ctx.fillText(`${pos}${suffix}`, 20, 48 + i * 20);
-    
-    ctx.fillStyle = r.color;
-    ctx.fillRect(50, 42 + i * 20, 8, 12);
     
     ctx.fillStyle = isPlayer ? '#4fc3f7' : '#ccc';
-    ctx.fillText(r.name, 64, 52 + i * 20);
+    ctx.font = isPlayer ? 'bold 10px system-ui' : '10px system-ui';
+    ctx.fillText(`${pos}${suffix}`, 18, 46 + i * 20);
+    
+    ctx.fillStyle = r.color;
+    ctx.fillRect(48, 38 + i * 20, 7, 12);
+    
+    ctx.fillStyle = isPlayer ? '#4fc3f7' : '#ccc';
+    ctx.fillText(r.name, 60, 48 + i * 20);
   }
 }
 
-// === DRAW MINIMAP ===
 function drawMinimap() {
-  const mw = 120, mh = 120;
+  const mw = 100, mh = 100;
   const mx = canvas.width - mw - 15;
   const my = 10;
-  const scale = 0.025;
+  const scale = 0.022;
   
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(mx, my, mw, mh);
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1;
   ctx.strokeRect(mx, my, mw, mh);
   
   const cx = mx + mw / 2;
   const cy = my + mh / 2;
   
-  // Track
-  ctx.strokeStyle = '#555';
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 4;
   ctx.beginPath();
   let mmx = cx, mmy = cy, acc = 0;
   for (let i = 0; i < segments.length; i += 15) {
-    acc += segments[i].curve * 40;
-    mmx += acc;
-    mmy += 2.5;
-    if (i === 0) ctx.moveTo(mmx, mmy);
-    else ctx.lineTo(mmx, mmy);
+    acc += segments[i].curve * 35;
+    mmx += acc; mmy += 2.5;
+    if (i === 0) ctx.moveTo(mmx, mmy); else ctx.lineTo(mmx, mmy);
   }
   ctx.stroke();
   
-  ctx.strokeStyle = 'rgba(0,200,255,0.3)';
-  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(0,200,255,0.25)';
+  ctx.lineWidth = 7;
   ctx.stroke();
   
-  // AI dots
   for (const car of aiCars) {
     let relZ = (car.z - player.z + trackLen) % trackLen;
     if (relZ > DRAW_DISTANCE * SEGMENT_LENGTH) continue;
@@ -738,93 +822,64 @@ function drawMinimap() {
     const sx = cx + (car.x * ROAD_WIDTH - camera.x) * cs * mw / 2;
     const sy = cy + (carSeg.p.world.y - CAMERA_HEIGHT) * cs * mh / 2 * 0.08;
     ctx.fillStyle = car.color;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI * 2); ctx.fill();
   }
   
-  // Player dot
   const pSeg = findSegment(player.z);
   const ps = CAMERA_DEPTH / 10;
   const px = cx + (player.x * ROAD_WIDTH - camera.x) * ps * mw / 2;
   const py = cy + (pSeg.p.world.y - CAMERA_HEIGHT) * ps * mh / 2 * 0.08;
   ctx.fillStyle = '#4fc3f7';
-  ctx.shadowColor = '#4fc3f7';
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(px, py, 4, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.shadowColor = '#4fc3f7'; ctx.shadowBlur = 5;
+  ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
 }
 
-// === DRAW NITRO BAR ===
 function drawNitroBar() {
-  const w = 180, h = 10;
+  const w = 160, h = 8;
   const x = canvas.width / 2 - w / 2;
-  const y = canvas.height - 35;
+  const y = canvas.height - 30;
   
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
   
-  // Nitro gradient
   const grad = ctx.createLinearGradient(x, y, x + w, y);
   grad.addColorStop(0, '#00e5ff');
   grad.addColorStop(0.5, '#2979ff');
   grad.addColorStop(1, '#aa00ff');
-  
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, player.nitro / 100 * w, h);
   
-  ctx.fillStyle = '#aaa';
-  ctx.font = '10px system-ui';
+  ctx.fillStyle = '#888';
+  ctx.font = '9px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText('NITRO', canvas.width / 2, y - 4);
+  ctx.fillText('NITRO', canvas.width / 2, y - 3);
 }
 
-// === DRAW EXHAUST ===
-function drawExhaust() {
-  if (player.speed < MAX_SPEED * 0.2) return;
-  
-  const intensity = player.speed / MAX_SPEED;
-  for (let i = 0; i < Math.floor(intensity * 3); i++) {
-    const ex = canvas.width / 2 + player.steer * 12 - 15 + Math.random() * 5;
-    const ey = canvas.height - 95 + Math.random() * 8;
-    const size = 2 + Math.random() * 3;
-    
-    ctx.fillStyle = `rgba(150,150,150,${0.1 + intensity * 0.15})`;
-    ctx.beginPath();
-    ctx.arc(ex, ey, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// === DRAW SPEED EFFECTS ===
 function drawSpeedEffects() {
   const sp = player.speed / MAX_SPEED;
   if (sp < 0.4) return;
   const intensity = (sp - 0.4) * 2;
   
-  // Motion blur lines
-  ctx.strokeStyle = `rgba(255,255,255,${intensity * 0.15})`;
+  ctx.strokeStyle = `rgba(255,255,255,${intensity * 0.12})`;
   ctx.lineWidth = 1;
-  for (let i = 0; i < Math.floor(intensity * 10); i++) {
+  for (let i = 0; i < Math.floor(intensity * 8); i++) {
     const a = Math.random() * Math.PI * 2;
-    const l = 15 + Math.random() * 25;
-    const x1 = canvas.width / 2 + Math.cos(a) * (50 + Math.random() * 120);
-    const y1 = canvas.height / 2 + Math.sin(a) * (30 + Math.random() * 80);
+    const l = 12 + Math.random() * 20;
+    const x1 = canvas.width / 2 + Math.cos(a) * (40 + Math.random() * 100);
+    const y1 = canvas.height / 2 + Math.sin(a) * (25 + Math.random() * 70);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x1 - Math.cos(a) * l, y1 - Math.sin(a) * l);
     ctx.stroke();
   }
   
-  // Vignette
   const vg = ctx.createRadialGradient(
     canvas.width / 2, canvas.height / 2, canvas.width * 0.3,
-    canvas.width / 2, canvas.height / 2, canvas.width * 0.7
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.65
   );
   vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, `rgba(0,0,0,${intensity * 0.3})`);
+  vg.addColorStop(1, `rgba(0,0,0,${intensity * 0.25})`);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -859,7 +914,6 @@ function update(dt) {
   else if (player.x < -TRACK_LIMIT) { player.x = -TRACK_LIMIT - (-TRACK_LIMIT - player.x) * 0.3; player.speed *= 0.96; }
   player.speed = clamp(player.speed, 0, MAX_SPEED * 1.15);
   
-  // Gear
   const spd = player.speed / MAX_SPEED * 320;
   player.gear = spd < 40 ? 1 : spd < 80 ? 2 : spd < 130 ? 3 : spd < 190 ? 4 : spd < 250 ? 5 : 6;
   player.rpm = (spd % 50) / 50;
@@ -867,8 +921,7 @@ function update(dt) {
   player.z += player.speed * dt;
   
   if (player.z >= trackLen) {
-    player.z -= trackLen;
-    player.lap++;
+    player.z -= trackLen; player.lap++;
     const lapTime = (Date.now() - lapStartTime) / 1000;
     if (player.lap <= TOTAL_LAPS && (!bestLap || lapTime < bestLap)) bestLap = lapTime;
     lapStartTime = Date.now();
@@ -882,15 +935,13 @@ function update(dt) {
     }
   }
   
-  // AI
   for (const car of aiCars) {
-    car.speed += (Math.random() - 0.5) * MAX_SPEED * 0.06 * dt;
+    car.speed += (Math.random() - 0.5) * MAX_SPEED * 0.05 * dt;
     car.speed = clamp(car.speed, MAX_SPEED * 0.6, MAX_SPEED * 0.84);
     car.z += car.speed * dt;
     if (car.z >= trackLen) { car.z -= trackLen; car.lap++; }
-    
     const cseg = findSegment(car.z);
-    car.x -= cseg.curve * 40 * dt;
+    car.x -= cseg.curve * 35 * dt;
     car.x += (car.targetX - car.x) * 0.012;
     car.x = clamp(car.x, -TRACK_LIMIT + 0.05, TRACK_LIMIT - 0.05);
     if (Math.random() < 0.003) car.targetX = (Math.random() - 0.5) * 1.5;
@@ -898,12 +949,16 @@ function update(dt) {
   
   camera.targetX = player.x * ROAD_WIDTH;
   camera.x += (camera.targetX - camera.x) * CAMERA_SMOOTH;
+  
+  // Background scroll based on speed
+  bgOffset += player.speed * dt * 0.02;
 }
 
 // === RENDER ===
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawSky();
+  
+  drawSmoothBackground();
   
   const baseIdx = Math.floor(player.z / SEGMENT_LENGTH);
   let maxY = canvas.height, camX = camera.x, curveAcc = 0;
@@ -927,11 +982,9 @@ function render() {
   }
   
   drawAI();
-  drawExhaust();
   drawSpeedEffects();
   drawPlayerCar();
   
-  // HUD
   drawSpeedometer();
   drawPosition();
   drawLapInfo();
@@ -952,6 +1005,7 @@ function loop(ts) {
 function startGame() {
   player = { x: 0, z: 0, speed: 0, steer: 0, lap: 0, nitro: 100, nitroActive: false, gear: 1, rpm: 0 };
   camera = { x: 0, targetX: 0, y: CAMERA_HEIGHT };
+  bgOffset = 0;
   gameRunning = true;
   lapStartTime = Date.now();
   bestLap = null;
