@@ -1,1022 +1,723 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏎️ REAL RACING: Circuit Championship</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  background: #000; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif;
-  display: flex; align-items: center; justify-content: center; height: 100vh;
-}
-canvas { display: block; }
-.overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.92); display: flex; flex-direction: column;
-  align-items: center; justify-content: center; z-index: 100;
-}
-.overlay.hidden { display: none; }
-.title {
-  font-size: 3em; font-weight: 900; letter-spacing: 4px;
-  background: linear-gradient(90deg, #ff0000, #ff6600, #ffcc00);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  margin-bottom: 10px; text-align: center;
-}
-.subtitle { color: #aaa; margin-bottom: 30px; font-size: 1.1em; }
-.btn {
-  padding: 14px 40px; font-size: 1.2em; font-weight: bold; border: none;
-  border-radius: 8px; cursor: pointer; color: #fff;
-  background: linear-gradient(135deg, #e53935, #ff6600);
-  box-shadow: 0 4px 20px rgba(229,57,53,0.4); transition: transform 0.2s;
-}
-.btn:hover { transform: scale(1.05); }
-.controls { margin-top: 20px; color: #666; font-size: 0.85em; line-height: 1.8; text-align: center; }
-kbd { background: #222; padding: 3px 8px; border-radius: 4px; border: 1px solid #444; color: #ff6600; font-weight: bold; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selju Island: Mutiara Manggara - Episode 1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* UI OVERLAY */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        /* DIALOGUE BOX */
+        #dialogue-box {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1000px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid #FFD700;
+            border-radius: 15px;
+            padding: 25px;
+            color: white;
+            pointer-events: auto;
+            cursor: pointer;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        
+        #speaker-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #dialogue-text {
+            font-size: 20px;
+            line-height: 1.8;
+            min-height: 60px;
+        }
+        
+        #next-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            animation: bounce 1s infinite;
+            font-size: 30px;
+            color: #FFD700;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* CHARACTER SPRITE */
+        #character-sprite {
+            position: absolute;
+            bottom: 250px;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 400px;
+            transition: all 0.5s ease;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+        }
+        
+        /* CHOICE MENU */
+        #choices {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: auto;
+        }
+        
+        .choice-btn {
+            padding: 20px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #2E8B57 0%, #3CB371 100%);
+            color: white;
+            border: 2px solid #FFD700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 400px;
+            text-align: center;
+        }
+        
+        .choice-btn:hover {
+            background: linear-gradient(135deg, #3CB371 0%, #2E8B57 100%);
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(60, 179, 113, 0.6);
+        }
+        
+        /* TITLE SCREEN */
+        #title-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.8)), 
+                        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect fill="%2387CEEB" width="1200" height="600"/><path fill="%23228B22" d="M0 400 Q300 350 600 400 T1200 400 L1200 600 L0 600 Z"/></svg>');
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+        }
+        
+        #title-screen h1 {
+            font-size: 72px;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        #title-screen h2 {
+            font-size: 32px;
+            margin-bottom: 50px;
+            text-align: center;
+        }
+        
+        #start-btn {
+            padding: 20px 60px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #000;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        #start-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.6);
+        }
+        
+        /* SCENE INDICATOR */
+        #scene-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: #FFD700;
+            font-size: 16px;
+        }
+        
+        /* SKIP BUTTON */
+        #skip-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(255,215,0,0.9);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+    </style>
 </head>
 <body>
-
-<canvas id="game"></canvas>
-
-<div class="overlay" id="startScreen">
-  <div class="title">🏎️ REAL RACING</div>
-  <div class="subtitle">Circuit Championship • 2 Lap • Smooth Background</div>
-  <button class="btn" id="startBtn">🏁 MULAI BALAP</button>
-  <div class="controls">
-    <kbd>W</kbd>/<kbd>↑</kbd> Gas &nbsp; <kbd>S</kbd>/<kbd>↓</kbd> Rem<br>
-    <kbd>A</kbd>/<kbd>D</kbd> atau <kbd>←</kbd>/<kbd>→</kbd> Belok<br>
-    <kbd>SPACE</kbd> Nitro 🔥 &nbsp; <kbd>R</kbd> Restart
-  </div>
-</div>
-
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const startScreen = document.getElementById('startScreen');
-const startBtn = document.getElementById('startBtn');
-
-function resize() {
-  canvas.width = Math.min(window.innerWidth - 20, 1200);
-  canvas.height = Math.min(window.innerHeight - 20, 700);
-}
-resize();
-window.addEventListener('resize', resize);
-
-// === CONSTANTS ===
-const SEGMENT_LENGTH = 200;
-const ROAD_WIDTH = 2400;
-const DRAW_DISTANCE = 300;
-const CAMERA_HEIGHT = 1200;
-const CAMERA_DEPTH = 1 / Math.tan((70/2) * Math.PI/180);
-const MAX_SPEED = SEGMENT_LENGTH * 55;
-const ACCEL = MAX_SPEED / 4;
-const BRAKE = -MAX_SPEED / 1.8;
-const DECEL = -MAX_SPEED / 5;
-const CENTRIFUGAL = 0.08;
-const TRACK_LIMIT = 0.9;
-const STEER_SENSITIVITY = 0.45;
-const AUTO_CENTER = 0.03;
-const CAMERA_SMOOTH = 0.06;
-const TOTAL_LAPS = 2;
-
-// === TRACK ===
-const TRACK = [
-  { name: 'Main Straight', length: 700, curve: 0, hill: 0, type: 'straight' },
-  { name: 'Turn 1', length: 350, curve: 0.003, hill: 3, type: 'right90' },
-  { name: 'Straight 2', length: 450, curve: 0, hill: 0, type: 'straight' },
-  { name: 'Turn 2-3', length: 400, curve: -0.0028, hill: 2, type: 'left90' },
-  { name: 'Back Straight', length: 600, curve: 0, hill: 0, type: 'straight' },
-  { name: 'Turn 4', length: 300, curve: 0.0025, hill: 3, type: 'right90' },
-  { name: 'Straight 5', length: 400, curve: 0, hill: 0, type: 'straight' },
-  { name: 'Turn 5-6', length: 350, curve: -0.003, hill: 2, type: 'left90' },
-  { name: 'Finish Straight', length: 450, curve: 0, hill: 0, type: 'finish' },
-];
-
-// === STATE ===
-let segments = [];
-let player = { x: 0, z: 0, speed: 0, steer: 0, lap: 0, nitro: 100, nitroActive: false, gear: 1, rpm: 0 };
-let aiCars = [];
-let trackLen = 0;
-let gameRunning = false;
-let lapStartTime = 0;
-let bestLap = null;
-let keys = {};
-let trackPoints = [];
-let camera = { x: 0, targetX: 0, y: CAMERA_HEIGHT };
-
-// Smooth background scroll offset
-let bgOffset = 0;
-
-// === INPUT ===
-document.addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key)) e.preventDefault();
-  if (e.key.toLowerCase() === 'r') startGame();
-});
-document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-// === INIT AI ===
-function initAI() {
-  aiCars = [
-    { z: 0, x: -0.25, speed: MAX_SPEED * 0.78, color: '#e53935', lap: 0, name: 'TORRES', targetX: -0.25, carType: 0 },
-    { z: 0, x: 0.2, speed: MAX_SPEED * 0.74, color: '#1e88e5', lap: 0, name: 'BERNARD', targetX: 0.2, carType: 1 },
-    { z: 0, x: 0.5, speed: MAX_SPEED * 0.70, color: '#fdd835', lap: 0, name: 'GONZÁLEZ', targetX: 0.5, carType: 2 },
-    { z: 0, x: -0.6, speed: MAX_SPEED * 0.72, color: '#43a047', lap: 0, name: 'LAMBERT', targetX: -0.6, carType: 1 },
-  ];
-}
-
-// === BUILD TRACK ===
-function buildRoad() {
-  segments = [];
-  trackPoints = [];
-  let globalIdx = 0;
-  
-  for (const sec of TRACK) {
-    for (let i = 0; i < sec.length; i++) {
-      const pos = i / sec.length;
-      let curveBase = sec.curve;
-      
-      if (sec.type.includes('90') || sec.type === 'hairpin') {
-        if (pos < 0.15) curveBase = sec.curve * (pos / 0.15);
-        else if (pos > 0.85) curveBase = sec.curve * ((1 - pos) / 0.15);
-      }
-      
-      let hillY = Math.sin(i * 0.008) * sec.hill * 4;
-      
-      segments.push({
-        index: globalIdx,
-        p: { world: { x: 0, y: hillY, z: globalIdx * SEGMENT_LENGTH }, screen: {}, camera: {} },
-        curve: curveBase,
-        color: Math.floor(globalIdx / 4) % 2,
-        isFinish: sec.type === 'finish' && i >= sec.length - 15,
-        section: sec.name,
-        sectionType: sec.type,
-        sectionProgress: pos,
-        hasGrandstand: sec.name.includes('Main') || sec.name.includes('Finish'),
-        hasTrees: sec.name.includes('Straight') && !sec.name.includes('Finish')
-      });
-      
-      if (globalIdx % 6 === 0) trackPoints.push({ x: curveBase * 3000, z: globalIdx * SEGMENT_LENGTH });
-      globalIdx++;
-    }
-  }
-  trackLen = segments.length * SEGMENT_LENGTH;
-}
-
-// === MATH ===
-function project(p, camX, camY, camZ) {
-  p.camera.x = p.world.x - camX;
-  p.camera.y = p.world.y - camY;
-  p.camera.z = p.world.z - camZ;
-  if (p.camera.z <= 1) { p.screen.scale = 0; return false; }
-  p.screen.scale = CAMERA_DEPTH / p.camera.z;
-  p.screen.x = Math.round(canvas.width/2 + p.screen.scale * p.camera.x * canvas.width/2);
-  p.screen.y = Math.round(canvas.height/2 - p.screen.scale * p.camera.y * canvas.height/2);
-  p.screen.w = Math.round(p.screen.scale * ROAD_WIDTH * canvas.width/2);
-  return true;
-}
-
-function findSegment(z) { return segments[Math.floor(z / SEGMENT_LENGTH) % segments.length]; }
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-
-// === SMOOTH CUBIC INTERPOLATION ===
-function smoothStep(t) { return t * t * (3 - 2 * t); }
-
-// === DRAW SMOOTH BACKGROUND ===
-function drawSmoothBackground() {
-  const W = canvas.width;
-  const H = canvas.height;
-  const horizonY = H * 0.45;
-  
-  // === SKY GRADIENT (smooth) ===
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-  skyGrad.addColorStop(0, '#1a6dd4');
-  skyGrad.addColorStop(0.2, '#2d8de8');
-  skyGrad.addColorStop(0.5, '#5ba8f0');
-  skyGrad.addColorStop(0.8, '#8ec8f7');
-  skyGrad.addColorStop(1, '#b8ddf9');
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, W, horizonY + 10);
-  
-  // === SUN ===
-  const sunX = W * 0.72;
-  const sunY = H * 0.13;
-  const sunR = 38;
-  
-  // Sun glow layers
-  const glowLayers = [
-    { r: sunR * 4, a: 0.04 },
-    { r: sunR * 3, a: 0.06 },
-    { r: sunR * 2, a: 0.1 },
-    { r: sunR * 1.5, a: 0.15 },
-  ];
-  for (const layer of glowLayers) {
-    const g = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, layer.r);
-    g.addColorStop(0, `rgba(255,250,220,${layer.a})`);
-    g.addColorStop(1, 'rgba(255,250,220,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, layer.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  
-  // Sun body
-  const sunGrad = ctx.createRadialGradient(sunX - 5, sunY - 5, 0, sunX, sunY, sunR);
-  sunGrad.addColorStop(0, '#fffef0');
-  sunGrad.addColorStop(0.5, '#fff4c4');
-  sunGrad.addColorStop(1, '#ffe082');
-  ctx.fillStyle = sunGrad;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // === SMOOTH CLOUDS ===
-  drawSmoothClouds(horizonY);
-  
-  // === SMOOTH ROLLING HILLS (3 layers for depth) ===
-  drawSmoothHills(horizonY);
-}
-
-function drawSmoothClouds(horizonY) {
-  const clouds = [
-    { x: 0.08, y: 0.08, scale: 1.0 },
-    { x: 0.25, y: 0.15, scale: 0.7 },
-    { x: 0.45, y: 0.06, scale: 0.9 },
-    { x: 0.62, y: 0.18, scale: 0.6 },
-    { x: 0.78, y: 0.10, scale: 0.8 },
-    { x: 0.92, y: 0.14, scale: 0.5 },
-    { x: 0.15, y: 0.22, scale: 0.55 },
-    { x: 0.55, y: 0.25, scale: 0.45 },
-  ];
-  
-  for (const c of clouds) {
-    const cx = c.x * canvas.width + Math.sin(Date.now() * 0.0001 + c.x * 10) * 10;
-    const cy = c.y * canvas.height;
-    const s = c.scale * 40;
+    <div id="game-container">
+        <div id="canvas-container"></div>
+        
+        <div id="ui-layer">
+            <div id="scene-indicator">Episode 1: Kejatuhan Selju</div>
+            <button id="skip-btn" onclick="skipScene()">Skip Cutscene</button>
+            
+            <div id="character-sprite"></div>
+            
+            <div id="choices">
+                <button class="choice-btn" onclick="makeChoice(0)">Pilihan 1</button>
+                <button class="choice-btn" onclick="makeChoice(1)">Pilihan 2</button>
+            </div>
+            
+            <div id="dialogue-box" onclick="nextDialogue()" style="display: none;">
+                <div id="speaker-name">Narator</div>
+                <div id="dialogue-text">Teks dialog akan muncul di sini...</div>
+                <div id="next-indicator">▼</div>
+            </div>
+        </div>
+    </div>
     
-    // Draw cloud as overlapping smooth circles
-    const circles = [
-      { dx: 0, dy: 0, r: s * 1.0 },
-      { dx: -s * 0.7, dy: s * 0.1, r: s * 0.7 },
-      { dx: s * 0.7, dy: s * 0.05, r: s * 0.65 },
-      { dx: -s * 0.3, dy: -s * 0.3, r: s * 0.6 },
-      { dx: s * 0.35, dy: -s * 0.25, r: s * 0.55 },
-      { dx: 0, dy: -s * 0.4, r: s * 0.5 },
-      { dx: -s * 1.1, dy: s * 0.15, r: s * 0.5 },
-      { dx: s * 1.1, dy: s * 0.1, r: s * 0.45 },
-    ];
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
-    for (const circ of circles) {
-      const g = ctx.createRadialGradient(
-        cx + circ.dx, cy + circ.dy, 0,
-        cx + circ.dx, cy + circ.dy, circ.r
-      );
-      g.addColorStop(0, 'rgba(255,255,255,0.9)');
-      g.addColorStop(0.6, 'rgba(255,255,255,0.6)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(cx + circ.dx, cy + circ.dy, circ.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
-function drawSmoothHills(horizonY) {
-  const W = canvas.width;
-  
-  // === FAR HILLS (light green, subtle) ===
-  ctx.beginPath();
-  ctx.moveTo(-10, horizonY);
-  for (let x = -10; x <= W + 10; x += 4) {
-    const t = (x + bgOffset * 0.3) / W;
-    // Multiple sine waves for natural look
-    const y = horizonY 
-      - Math.sin(t * Math.PI * 2.5) * 40
-      - Math.sin(t * Math.PI * 5.7 + 1.2) * 20
-      - Math.sin(t * Math.PI * 1.3 + 0.5) * 30
-      - Math.cos(t * Math.PI * 3.2 + 2.1) * 15;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W + 10, horizonY + 10);
-  ctx.lineTo(-10, horizonY + 10);
-  ctx.closePath();
-  
-  const farGrad = ctx.createLinearGradient(0, horizonY - 60, 0, horizonY + 10);
-  farGrad.addColorStop(0, '#7cb87c');
-  farGrad.addColorStop(1, '#5a9e5a');
-  ctx.fillStyle = farGrad;
-  ctx.fill();
-  
-  // === MID HILLS (darker green) ===
-  ctx.beginPath();
-  ctx.moveTo(-10, horizonY);
-  for (let x = -10; x <= W + 10; x += 3) {
-    const t = (x + bgOffset * 0.6) / W;
-    const y = horizonY 
-      - Math.sin(t * Math.PI * 3.2) * 35
-      - Math.sin(t * Math.PI * 6.1 + 0.8) * 18
-      - Math.cos(t * Math.PI * 2.0 + 1.5) * 25;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W + 10, horizonY + 5);
-  ctx.lineTo(-10, horizonY + 5);
-  ctx.closePath();
-  
-  const midGrad = ctx.createLinearGradient(0, horizonY - 50, 0, horizonY + 5);
-  midGrad.addColorStop(0, '#4a8f4a');
-  midGrad.addColorStop(1, '#3a7a3a');
-  ctx.fillStyle = midGrad;
-  ctx.fill();
-  
-  // === NEAR HILLS (darkest green, closest to road) ===
-  ctx.beginPath();
-  ctx.moveTo(-10, horizonY);
-  for (let x = -10; x <= W + 10; x += 2) {
-    const t = (x + bgOffset * 1.0) / W;
-    const y = horizonY 
-      - Math.sin(t * Math.PI * 4.0) * 25
-      - Math.sin(t * Math.PI * 7.3 + 0.3) * 12
-      - Math.cos(t * Math.PI * 2.5 + 0.8) * 15;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W + 10, horizonY + 3);
-  ctx.lineTo(-10, horizonY + 3);
-  ctx.closePath();
-  
-  const nearGrad = ctx.createLinearGradient(0, horizonY - 35, 0, horizonY + 3);
-  nearGrad.addColorStop(0, '#2d6e2d');
-  nearGrad.addColorStop(1, '#245a24');
-  ctx.fillStyle = nearGrad;
-  ctx.fill();
-}
-
-// === DRAW REALISTIC ROAD ===
-function drawRoadSegment(s, p1, p2) {
-  const isDark = s.color === 0;
-  
-  // Grass - smooth green
-  const grassColor = isDark ? '#2d7a2d' : '#3a8a3a';
-  ctx.fillStyle = grassColor;
-  ctx.fillRect(0, p2.screen.y, canvas.width, p1.screen.y - p2.screen.y);
-  
-  // Grass subtle stripes
-  if (p1.screen.w > 20) {
-    const stripeAlpha = isDark ? 0.05 : 0.04;
-    ctx.fillStyle = `rgba(0,0,0,${stripeAlpha})`;
-    const stripeH = (p1.screen.y - p2.screen.y) / 3;
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(0, p2.screen.y + i * stripeH, canvas.width, stripeH / 2);
-    }
-  }
-  
-  // Grandstand / Trees
-  if (s.hasGrandstand && p1.screen.w > 10) drawGrandstand(p1, p2, s);
-  if (s.hasTrees && p1.screen.w > 15) drawTrees(p1, p2, s);
-  
-  // Road shoulder / curb (red-white alternating)
-  const curbPhase = Math.floor(s.index / 8) % 2;
-  ctx.fillStyle = curbPhase ? '#e53935' : '#ffffff';
-  const curbW = p1.screen.w * 0.04;
-  ctx.fillRect(p1.screen.x - p1.screen.w - curbW * 1.5, p1.screen.y, curbW * 1.5, p1.screen.y - p2.screen.y);
-  ctx.fillRect(p1.screen.x + p1.screen.w, p1.screen.y, curbW * 1.5, p1.screen.y - p2.screen.y);
-  
-  // Road surface
-  ctx.fillStyle = isDark ? '#3a3a3a' : '#424242';
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x - p1.screen.w, p1.screen.y);
-  ctx.lineTo(p1.screen.x + p1.screen.w, p1.screen.y);
-  ctx.lineTo(p2.screen.x + p2.screen.w, p2.screen.y);
-  ctx.lineTo(p2.screen.x - p2.screen.w, p2.screen.y);
-  ctx.closePath();
-  ctx.fill();
-  
-  // Road texture
-  if (p1.screen.w > 25) {
-    ctx.fillStyle = 'rgba(0,0,0,0.04)';
-    for (let i = 0; i < 6; i++) {
-      const tx = p1.screen.x + (Math.random() - 0.5) * p1.screen.w * 1.6;
-      const ty = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y);
-      ctx.fillRect(tx, ty, 1 + Math.random(), 1);
-    }
-  }
-  
-  // Lane markings - dashed white
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = Math.max(1, p1.screen.w * 0.008);
-  ctx.setLineDash([18, 14]);
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x - p1.screen.w / 3, p1.screen.y);
-  ctx.lineTo(p2.screen.x - p2.screen.w / 3, p2.screen.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x + p1.screen.w / 3, p1.screen.y);
-  ctx.lineTo(p2.screen.x + p2.screen.w / 3, p2.screen.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  
-  // Center line
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([12, 12]);
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x, p1.screen.y);
-  ctx.lineTo(p2.screen.x, p2.screen.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  
-  // Edge solid white lines
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = Math.max(1, p1.screen.w * 0.005);
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x - p1.screen.w, p1.screen.y);
-  ctx.lineTo(p2.screen.x - p2.screen.w, p2.screen.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(p1.screen.x + p1.screen.w, p1.screen.y);
-  ctx.lineTo(p2.screen.x + p2.screen.w, p2.screen.y);
-  ctx.stroke();
-  
-  // Finish line
-  if (s.isFinish) {
-    ctx.fillStyle = '#fff';
-    const cs = p1.screen.w / 12;
-    for (let i = 0; i < 24; i++) {
-      if (i % 2) ctx.fillRect(p1.screen.x - p1.screen.w + i * cs, p1.screen.y, cs, p1.screen.y - p2.screen.y);
-    }
-  }
-}
-
-function drawGrandstand(p1, p2, seg) {
-  const sw = p1.screen.w * 0.25;
-  const sh = p1.screen.y - p2.screen.y;
-  
-  // Stand structure
-  ctx.fillStyle = '#666';
-  ctx.fillRect(p1.screen.x + p1.screen.w + 5, p1.screen.y - sh * 0.7, sw, sh * 0.7);
-  ctx.fillRect(p1.screen.x - p1.screen.w - sw - 5, p1.screen.y - sh * 0.7, sw, sh * 0.7);
-  
-  // Spectators
-  const colors = ['#e53935','#1e88e5','#43a047','#fdd835','#ff6600','#9c27b0','#fff','#555'];
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < Math.floor(sw / 5); col++) {
-      const x = p1.screen.x + p1.screen.w + 8 + col * 5;
-      const y = p1.screen.y - sh * 0.65 + row * 4;
-      if (Math.random() > 0.3) {
-        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-        ctx.fillRect(x, y, 3, 3);
-      }
-      const x2 = p1.screen.x - p1.screen.w - sw + 8 + col * 5;
-      if (Math.random() > 0.3) {
-        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-        ctx.fillRect(x2, y, 3, 3);
-      }
-    }
-  }
-}
-
-function drawTrees(p1, p2, seg) {
-  const treeH = p1.screen.w * 0.4;
-  if (treeH < 3) return;
-  
-  for (let i = 0; i < 3; i++) {
-    const offset = (Math.sin(i * 3.7 + seg.index * 0.1) * 0.5 + 0.5);
-    const tx = p1.screen.x - p1.screen.w - 15 - offset * 25 - Math.random() * 5;
-    const ty = p1.screen.y - Math.random() * (p1.screen.y - p2.screen.y) * 0.5;
-    
-    // Trunk
-    ctx.fillStyle = '#5d4037';
-    ctx.fillRect(tx - 1, ty - treeH, 3, treeH);
-    
-    // Canopy layers
-    ctx.fillStyle = '#2e7d32';
-    ctx.beginPath();
-    ctx.arc(tx, ty - treeH, treeH * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#388e3c';
-    ctx.beginPath();
-    ctx.arc(tx + treeH * 0.12, ty - treeH * 0.85, treeH * 0.25, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// === DRAW CAR ===
-function drawRealisticCar(x, y, w, h, color, carType, isPlayer) {
-  ctx.save();
-  ctx.translate(x, y);
-  
-  const cw = w * 1.2;
-  const ch = h * 1.5;
-  
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.beginPath();
-  ctx.ellipse(0, ch * 0.45, cw * 0.7, ch * 0.1, 0, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Body
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(cw * 0.45, 0);
-  ctx.quadraticCurveTo(cw * 0.5, -ch * 0.15, cw * 0.35, -ch * 0.3);
-  ctx.lineTo(-cw * 0.35, -ch * 0.3);
-  ctx.quadraticCurveTo(-cw * 0.5, -ch * 0.15, -cw * 0.45, 0);
-  ctx.lineTo(-cw * 0.4, ch * 0.4);
-  ctx.quadraticCurveTo(-cw * 0.42, ch * 0.5, -cw * 0.3, ch * 0.5);
-  ctx.lineTo(cw * 0.3, ch * 0.5);
-  ctx.quadraticCurveTo(cw * 0.42, ch * 0.5, cw * 0.4, ch * 0.4);
-  ctx.closePath();
-  ctx.fill();
-  
-  // Highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.beginPath();
-  ctx.moveTo(cw * 0.15, -ch * 0.25);
-  ctx.lineTo(-cw * 0.05, -ch * 0.3);
-  ctx.lineTo(-cw * 0.25, -ch * 0.2);
-  ctx.lineTo(-cw * 0.1, -ch * 0.1);
-  ctx.closePath();
-  ctx.fill();
-  
-  // Windshield
-  ctx.fillStyle = '#1a237e';
-  ctx.beginPath();
-  ctx.moveTo(cw * 0.25, -ch * 0.15);
-  ctx.lineTo(cw * 0.15, -ch * 0.35);
-  ctx.lineTo(-cw * 0.15, -ch * 0.35);
-  ctx.lineTo(-cw * 0.25, -ch * 0.15);
-  ctx.closePath();
-  ctx.fill();
-  
-  ctx.fillStyle = 'rgba(100,200,255,0.3)';
-  ctx.beginPath();
-  ctx.moveTo(cw * 0.1, -ch * 0.2);
-  ctx.lineTo(cw * 0.05, -ch * 0.32);
-  ctx.lineTo(-cw * 0.1, -ch * 0.25);
-  ctx.lineTo(-cw * 0.05, -ch * 0.15);
-  ctx.closePath();
-  ctx.fill();
-  
-  // Spoiler
-  if (carType === 0) {
-    ctx.fillStyle = color;
-    ctx.fillRect(-cw * 0.45, ch * 0.3, cw * 0.9, ch * 0.05);
-    ctx.fillRect(-cw * 0.35, ch * 0.15, cw * 0.04, ch * 0.2);
-    ctx.fillRect(cw * 0.31, ch * 0.15, cw * 0.04, ch * 0.2);
-  }
-  
-  // Rear lights
-  ctx.fillStyle = '#ff1744';
-  ctx.shadowColor = '#ff1744';
-  ctx.shadowBlur = 5;
-  ctx.fillRect(-cw * 0.42, ch * 0.35, cw * 0.12, ch * 0.04);
-  ctx.fillRect(cw * 0.3, ch * 0.35, cw * 0.12, ch * 0.04);
-  ctx.shadowBlur = 0;
-  
-  // Headlights
-  ctx.fillStyle = '#fff9c4';
-  ctx.shadowColor = '#ffeb3b';
-  ctx.shadowBlur = 3;
-  ctx.fillRect(-cw * 0.42, -ch * 0.25, cw * 0.08, ch * 0.03);
-  ctx.fillRect(cw * 0.34, -ch * 0.25, cw * 0.08, ch * 0.03);
-  ctx.shadowBlur = 0;
-  
-  // Wheels
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-cw * 0.52, -ch * 0.05, cw * 0.1, ch * 0.15);
-  ctx.fillRect(cw * 0.42, -ch * 0.05, cw * 0.1, ch * 0.15);
-  ctx.fillRect(-cw * 0.5, ch * 0.2, cw * 0.09, ch * 0.12);
-  ctx.fillRect(cw * 0.41, ch * 0.2, cw * 0.09, ch * 0.12);
-  
-  // Rims
-  ctx.fillStyle = '#888';
-  ctx.fillRect(-cw * 0.5, -ch * 0.02, cw * 0.06, ch * 0.08);
-  ctx.fillRect(cw * 0.44, -ch * 0.02, cw * 0.06, ch * 0.08);
-  
-  // Nitro flame
-  if (isPlayer && player.nitroActive) {
-    const flameH = ch * (0.2 + Math.random() * 0.3);
-    ctx.fillStyle = '#00e5ff';
-    ctx.shadowColor = '#00e5ff';
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.moveTo(-cw * 0.15, ch * 0.5);
-    ctx.lineTo(0, ch * 0.5 + flameH);
-    ctx.lineTo(cw * 0.15, ch * 0.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(-cw * 0.08, ch * 0.5);
-    ctx.lineTo(0, ch * 0.5 + flameH * 0.6);
-    ctx.lineTo(cw * 0.08, ch * 0.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-  
-  ctx.restore();
-}
-
-function drawPlayerCar() {
-  const bounce = Math.sin(Date.now() * 0.012) * 2;
-  const lean = player.steer * 0.08;
-  drawRealisticCar(canvas.width / 2 + player.steer * 12, canvas.height - 130 + bounce, 50, 35, '#1a237e', 0, true);
-}
-
-function drawAI() {
-  aiCars.sort((a, b) => {
-    let da = (a.z - player.z + trackLen) % trackLen;
-    let db = (b.z - player.z + trackLen) % trackLen;
-    return db - da;
-  });
-
-  for (const car of aiCars) {
-    let relZ = (car.z - player.z + trackLen) % trackLen;
-    if (relZ > DRAW_DISTANCE * SEGMENT_LENGTH || relZ < 5) continue;
-    const seg = findSegment(car.z);
-    const scale = CAMERA_DEPTH / relZ;
-    const screenX = canvas.width / 2 + scale * (car.x * ROAD_WIDTH - camera.x) * canvas.width / 2;
-    const screenY = canvas.height / 2 - scale * (seg.p.world.y - CAMERA_HEIGHT) * canvas.height / 2;
-    const spriteW = scale * ROAD_WIDTH * 0.08 * canvas.width / 2;
-    const spriteH = spriteW * 0.7;
-    if (screenY < -50 || screenY > canvas.height + 50 || spriteW < 2) continue;
-    drawRealisticCar(screenX, screenY, spriteW, spriteH, car.color, car.carType, false);
-  }
-}
-
-// === HUD ELEMENTS ===
-function drawSpeedometer() {
-  const cx = canvas.width - 85;
-  const cy = canvas.height - 85;
-  const r = 65;
-  const speedKmh = Math.round(player.speed / MAX_SPEED * 320);
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.65)';
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  
-  // Speed arc
-  const speedAngle = (speedKmh / 320) * Math.PI * 1.5;
-  ctx.strokeStyle = '#2a2a2a';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r - 3, Math.PI * 0.75, Math.PI * 2.25);
-  ctx.stroke();
-  
-  let speedColor = '#4caf50';
-  if (speedKmh > 200) speedColor = '#ff9800';
-  if (speedKmh > 260) speedColor = '#f44336';
-  ctx.strokeStyle = speedColor;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r - 3, Math.PI * 0.75, Math.PI * 0.75 + speedAngle);
-  ctx.stroke();
-  
-  // Ticks
-  for (let i = 0; i <= 8; i++) {
-    const angle = Math.PI * 0.75 + (i / 8) * Math.PI * 1.5;
-    const outer = r - 12;
-    const inner = r - 3;
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = i % 2 === 0 ? 2 : 1;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
-    ctx.lineTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
-    ctx.stroke();
-  }
-  
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 24px system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillText(speedKmh, cx, cy + 3);
-  ctx.font = '10px system-ui';
-  ctx.fillStyle = '#888';
-  ctx.fillText('KM/H', cx, cy + 18);
-  ctx.fillStyle = '#ff6600';
-  ctx.font = 'bold 14px system-ui';
-  ctx.fillText('G' + player.gear, cx, cy - 18);
-}
-
-function drawPosition() {
-  const allCars = [player, ...aiCars.map(c => ({...c, isPlayer: false}))];
-  allCars.sort((a, b) => {
-    const aPos = a.lap * trackLen + (a.z || 0);
-    const bPos = b.lap * trackLen + (b.z || 0);
-    return bPos - aPos;
-  });
-  const playerPos = allCars.findIndex(c => c.isPlayer === true) + 1;
-  const suffix = playerPos === 1 ? 'ST' : playerPos === 2 ? 'ND' : playerPos === 3 ? 'RD' : 'TH';
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(canvas.width - 130, 15, 120, 45);
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(canvas.width - 130, 15, 120, 45);
-  
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 28px system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${playerPos}${suffix}`, canvas.width - 70, 44);
-  ctx.font = '10px system-ui';
-  ctx.fillStyle = '#888';
-  ctx.fillText(`/${aiCars.length + 1}`, canvas.width - 70, 58);
-}
-
-function drawLapInfo() {
-  const elapsed = ((Date.now() - lapStartTime) / 1000);
-  const mins = Math.floor(elapsed / 60);
-  const secs = (elapsed % 60).toFixed(2).padStart(5, '0');
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(canvas.width - 130, 68, 120, 45);
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.strokeRect(canvas.width - 130, 68, 120, 45);
-  
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 13px system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${mins}:${secs}`, canvas.width - 70, 85);
-  ctx.font = '10px system-ui';
-  ctx.fillStyle = '#ff6600';
-  ctx.fillText(`LAP ${Math.min(player.lap + 1, TOTAL_LAPS)}/${TOTAL_LAPS}`, canvas.width - 70, 102);
-}
-
-function drawLeaderboard() {
-  const allRacers = [
-    { name: 'YOU', lap: player.lap, z: player.z, color: '#4fc3f7' },
-    ...aiCars.map(c => ({ name: c.name, lap: c.lap, z: c.z, color: c.color }))
-  ];
-  allRacers.sort((a, b) => (b.lap * trackLen + b.z) - (a.lap * trackLen + a.z));
-  
-  const panelH = 28 + Math.min(allRacers.length, 5) * 20;
-  ctx.fillStyle = 'rgba(0,0,0,0.65)';
-  ctx.fillRect(10, 10, 170, panelH);
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(10, 10, 170, panelH);
-  
-  ctx.font = 'bold 11px system-ui';
-  ctx.fillStyle = '#ff6600';
-  ctx.textAlign = 'left';
-  ctx.fillText('LEADERBOARD', 18, 26);
-  
-  for (let i = 0; i < Math.min(allRacers.length, 5); i++) {
-    const r = allRacers[i];
-    const isPlayer = r.name === 'YOU';
-    const pos = i + 1;
-    const suffix = pos === 1 ? 'ST' : pos === 2 ? 'ND' : pos === 3 ? 'RD' : 'TH';
-    
-    ctx.fillStyle = isPlayer ? '#4fc3f7' : '#ccc';
-    ctx.font = isPlayer ? 'bold 10px system-ui' : '10px system-ui';
-    ctx.fillText(`${pos}${suffix}`, 18, 46 + i * 20);
-    
-    ctx.fillStyle = r.color;
-    ctx.fillRect(48, 38 + i * 20, 7, 12);
-    
-    ctx.fillStyle = isPlayer ? '#4fc3f7' : '#ccc';
-    ctx.fillText(r.name, 60, 48 + i * 20);
-  }
-}
-
-function drawMinimap() {
-  const mw = 100, mh = 100;
-  const mx = canvas.width - mw - 15;
-  const my = 10;
-  const scale = 0.022;
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(mx, my, mw, mh);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(mx, my, mw, mh);
-  
-  const cx = mx + mw / 2;
-  const cy = my + mh / 2;
-  
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  let mmx = cx, mmy = cy, acc = 0;
-  for (let i = 0; i < segments.length; i += 15) {
-    acc += segments[i].curve * 35;
-    mmx += acc; mmy += 2.5;
-    if (i === 0) ctx.moveTo(mmx, mmy); else ctx.lineTo(mmx, mmy);
-  }
-  ctx.stroke();
-  
-  ctx.strokeStyle = 'rgba(0,200,255,0.25)';
-  ctx.lineWidth = 7;
-  ctx.stroke();
-  
-  for (const car of aiCars) {
-    let relZ = (car.z - player.z + trackLen) % trackLen;
-    if (relZ > DRAW_DISTANCE * SEGMENT_LENGTH) continue;
-    const carSeg = findSegment(car.z);
-    const cs = CAMERA_DEPTH / relZ;
-    const sx = cx + (car.x * ROAD_WIDTH - camera.x) * cs * mw / 2;
-    const sy = cy + (carSeg.p.world.y - CAMERA_HEIGHT) * cs * mh / 2 * 0.08;
-    ctx.fillStyle = car.color;
-    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI * 2); ctx.fill();
-  }
-  
-  const pSeg = findSegment(player.z);
-  const ps = CAMERA_DEPTH / 10;
-  const px = cx + (player.x * ROAD_WIDTH - camera.x) * ps * mw / 2;
-  const py = cy + (pSeg.p.world.y - CAMERA_HEIGHT) * ps * mh / 2 * 0.08;
-  ctx.fillStyle = '#4fc3f7';
-  ctx.shadowColor = '#4fc3f7'; ctx.shadowBlur = 5;
-  ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-function drawNitroBar() {
-  const w = 160, h = 8;
-  const x = canvas.width / 2 - w / 2;
-  const y = canvas.height - 30;
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
-  
-  const grad = ctx.createLinearGradient(x, y, x + w, y);
-  grad.addColorStop(0, '#00e5ff');
-  grad.addColorStop(0.5, '#2979ff');
-  grad.addColorStop(1, '#aa00ff');
-  ctx.fillStyle = grad;
-  ctx.fillRect(x, y, player.nitro / 100 * w, h);
-  
-  ctx.fillStyle = '#888';
-  ctx.font = '9px system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillText('NITRO', canvas.width / 2, y - 3);
-}
-
-function drawSpeedEffects() {
-  const sp = player.speed / MAX_SPEED;
-  if (sp < 0.4) return;
-  const intensity = (sp - 0.4) * 2;
-  
-  ctx.strokeStyle = `rgba(255,255,255,${intensity * 0.12})`;
-  ctx.lineWidth = 1;
-  for (let i = 0; i < Math.floor(intensity * 8); i++) {
-    const a = Math.random() * Math.PI * 2;
-    const l = 12 + Math.random() * 20;
-    const x1 = canvas.width / 2 + Math.cos(a) * (40 + Math.random() * 100);
-    const y1 = canvas.height / 2 + Math.sin(a) * (25 + Math.random() * 70);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x1 - Math.cos(a) * l, y1 - Math.sin(a) * l);
-    ctx.stroke();
-  }
-  
-  const vg = ctx.createRadialGradient(
-    canvas.width / 2, canvas.height / 2, canvas.width * 0.3,
-    canvas.width / 2, canvas.height / 2, canvas.width * 0.65
-  );
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, `rgba(0,0,0,${intensity * 0.25})`);
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-// === UPDATE ===
-function update(dt) {
-  const seg = findSegment(player.z);
-  const speedPercent = player.speed / MAX_SPEED;
-  
-  if (keys['w'] || keys['arrowup']) player.speed += ACCEL * dt;
-  else if (keys['s'] || keys['arrowdown']) player.speed += BRAKE * dt;
-  else player.speed += DECEL * dt;
-  
-  if (keys['a'] || keys['arrowleft']) player.steer = -1;
-  else if (keys['d'] || keys['arrowright']) player.steer = 1;
-  else player.steer = 0;
-  
-  player.x += player.steer * STEER_SENSITIVITY * dt * 1.6 * speedPercent;
-  player.x -= speedPercent * seg.curve * CENTRIFUGAL * dt * 35;
-  if (player.steer === 0) player.x *= (1 - AUTO_CENTER);
-  
-  if (keys[' '] && player.nitro > 0 && (keys['w'] || keys['arrowup'])) {
-    player.nitroActive = true;
-    player.nitro = Math.max(0, player.nitro - 18 * dt);
-    player.speed = Math.min(MAX_SPEED * 1.15, player.speed + MAX_SPEED * 0.2 * dt);
-  } else {
-    player.nitro = Math.min(100, player.nitro + 6 * dt);
-    player.nitroActive = false;
-  }
-  
-  if (player.x > TRACK_LIMIT) { player.x = TRACK_LIMIT - (TRACK_LIMIT - player.x) * 0.3; player.speed *= 0.96; }
-  else if (player.x < -TRACK_LIMIT) { player.x = -TRACK_LIMIT - (-TRACK_LIMIT - player.x) * 0.3; player.speed *= 0.96; }
-  player.speed = clamp(player.speed, 0, MAX_SPEED * 1.15);
-  
-  const spd = player.speed / MAX_SPEED * 320;
-  player.gear = spd < 40 ? 1 : spd < 80 ? 2 : spd < 130 ? 3 : spd < 190 ? 4 : spd < 250 ? 5 : 6;
-  player.rpm = (spd % 50) / 50;
-  
-  player.z += player.speed * dt;
-  
-  if (player.z >= trackLen) {
-    player.z -= trackLen; player.lap++;
-    const lapTime = (Date.now() - lapStartTime) / 1000;
-    if (player.lap <= TOTAL_LAPS && (!bestLap || lapTime < bestLap)) bestLap = lapTime;
-    lapStartTime = Date.now();
-    
-    if (player.lap >= TOTAL_LAPS) {
-      gameRunning = false;
-      startScreen.classList.remove('hidden');
-      document.querySelector('.title').textContent = '🏆 FINISH!';
-      document.querySelector('.subtitle').textContent = `Best Lap: ${bestLap?.toFixed(2) || '0.00'}s | ${TOTAL_LAPS}/${TOTAL_LAPS} Laps`;
-      startBtn.textContent = '🔄 BALAP LAGI';
-    }
-  }
-  
-  for (const car of aiCars) {
-    car.speed += (Math.random() - 0.5) * MAX_SPEED * 0.05 * dt;
-    car.speed = clamp(car.speed, MAX_SPEED * 0.6, MAX_SPEED * 0.84);
-    car.z += car.speed * dt;
-    if (car.z >= trackLen) { car.z -= trackLen; car.lap++; }
-    const cseg = findSegment(car.z);
-    car.x -= cseg.curve * 35 * dt;
-    car.x += (car.targetX - car.x) * 0.012;
-    car.x = clamp(car.x, -TRACK_LIMIT + 0.05, TRACK_LIMIT - 0.05);
-    if (Math.random() < 0.003) car.targetX = (Math.random() - 0.5) * 1.5;
-  }
-  
-  camera.targetX = player.x * ROAD_WIDTH;
-  camera.x += (camera.targetX - camera.x) * CAMERA_SMOOTH;
-  
-  // Background scroll based on speed
-  bgOffset += player.speed * dt * 0.02;
-}
-
-// === RENDER ===
-function render() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  drawSmoothBackground();
-  
-  const baseIdx = Math.floor(player.z / SEGMENT_LENGTH);
-  let maxY = canvas.height, camX = camera.x, curveAcc = 0;
-  
-  for (let n = 0; n < DRAW_DISTANCE; n++) {
-    const idx = baseIdx + n;
-    if (idx >= segments.length) break;
-    const seg = segments[idx];
-    curveAcc += seg.curve;
-    camX += curveAcc * SEGMENT_LENGTH;
-    if (!project(seg.p, camX, camera.y, player.z)) continue;
-    if (seg.p.screen.y >= maxY || seg.p.screen.scale <= 0) continue;
-    
-    const nextIdx = idx + 1;
-    if (nextIdx >= segments.length) break;
-    const next = segments[nextIdx];
-    let nextCamX = camX + (curveAcc + next.curve) * SEGMENT_LENGTH;
-    project(next.p, nextCamX, camera.y, player.z);
-    drawRoadSegment(seg, seg.p, next.p);
-    maxY = seg.p.screen.y;
-  }
-  
-  drawAI();
-  drawSpeedEffects();
-  drawPlayerCar();
-  
-  drawSpeedometer();
-  drawPosition();
-  drawLapInfo();
-  drawLeaderboard();
-  drawMinimap();
-  drawNitroBar();
-}
-
-let last = 0;
-function loop(ts) {
-  const dt = Math.min((ts - last) / 1000, 0.05);
-  last = ts;
-  if (gameRunning) update(dt);
-  render();
-  requestAnimationFrame(loop);
-}
-
-function startGame() {
-  player = { x: 0, z: 0, speed: 0, steer: 0, lap: 0, nitro: 100, nitroActive: false, gear: 1, rpm: 0 };
-  camera = { x: 0, targetX: 0, y: CAMERA_HEIGHT };
-  bgOffset = 0;
-  gameRunning = true;
-  lapStartTime = Date.now();
-  bestLap = null;
-  buildRoad();
-  initAI();
-  startScreen.classList.add('hidden');
-}
-
-startBtn.addEventListener('click', startGame);
-buildRoad();
-requestAnimationFrame(loop);
-</script>
+    <script>
+        // === THREE.JS SETUP ===
+        let scene, camera, renderer, island, temple, ocean;
+        let currentScene = 0;
+        let isCutscene = true;
+        let animationId;
+        
+        function initThreeJS() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 15);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const sunLight = new THREE.DirectionalLight(0xFFD700, 1);
+            sunLight.position.set(10, 20, 10);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            scene.add(sunLight);
+            
+            createEnvironment();
+            animate();
+        }
+        
+        function createEnvironment() {
+            // OCEAN
+            const oceanGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+            const oceanMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0077BE,
+                transparent: true,
+                opacity: 0.8,
+                roughness: 0.2,
+                metalness: 0.1
+            });
+            ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+            ocean.rotation.x = -Math.PI / 2;
+            ocean.position.y = -2;
+            scene.add(ocean);
+            
+            // ISLAND (Beach)
+            const islandGeometry = new THREE.CircleGeometry(30, 32);
+            const islandMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xF4D03F,
+                roughness: 0.9
+            });
+            island = new THREE.Mesh(islandGeometry, islandMaterial);
+            island.rotation.x = -Math.PI / 2;
+            island.position.y = -1.9;
+            island.receiveShadow = true;
+            scene.add(island);
+            
+            // TEMPLE (Simple structure)
+            createTemple();
+            
+            // PALM TREES
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const radius = 20;
+                createPalmTree(
+                    Math.cos(angle) * radius,
+                    Math.sin(angle) * radius
+                );
+            }
+            
+            // SKY GRADIENT
+            scene.background = new THREE.Color(0x87CEEB);
+        }
+        
+        function createTemple() {
+            const templeGroup = new THREE.Group();
+            
+            // Base
+            const baseGeometry = new THREE.CylinderGeometry(4, 5, 2, 8);
+            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B7355 });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 1;
+            base.castShadow = true;
+            templeGroup.add(base);
+            
+            // Pillars
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const pillarGeometry = new THREE.CylinderGeometry(0.3, 0.3, 4, 8);
+                const pillarMaterial = new THREE.MeshStandardMaterial({ color: 0xD2691E });
+                const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+                pillar.position.set(
+                    Math.cos(angle) * 3,
+                    3,
+                    Math.sin(angle) * 3
+                );
+                pillar.castShadow = true;
+                templeGroup.add(pillar);
+            }
+            
+            // Roof
+            const roofGeometry = new THREE.ConeGeometry(5, 3, 8);
+            const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+            const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+            roof.position.y = 5;
+            roof.castShadow = true;
+            templeGroup.add(roof);
+            
+            // Pearl (Glowing orb)
+            const pearlGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const pearlMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xFFD700,
+                emissive: 0xFFD700,
+                emissiveIntensity: 2,
+                transparent: true,
+                opacity: 0.9
+            });
+            const pearl = new THREE.Mesh(pearlGeometry, pearlMaterial);
+            pearl.position.y = 6;
+            
+            // Pearl glow light
+            const pearlLight = new THREE.PointLight(0xFFD700, 2, 10);
+            pearlLight.position.y = 6;
+            templeGroup.add(pearlLight);
+            
+            templeGroup.add(pearl);
+            templeGroup.position.set(0, -1, 0);
+            scene.add(templeGroup);
+            
+            temple = templeGroup;
+        }
+        
+        function createPalmTree(x, z) {
+            const treeGroup = new THREE.Group();
+            
+            // Trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.4, 6, 8);
+            const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.y = 3;
+            trunk.castShadow = true;
+            treeGroup.add(trunk);
+            
+            // Leaves
+            const leavesGeometry = new THREE.ConeGeometry(2, 3, 8);
+            const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.y = 6.5;
+            treeGroup.add(leaves);
+            
+            treeGroup.position.set(x, -1.9, z);
+            scene.add(treeGroup);
+        }
+        
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            // Animate ocean waves
+            if (ocean) {
+                const time = Date.now() * 0.001;
+                const positions = ocean.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i + 2] = Math.sin(time + positions[i] * 0.1) * 0.5;
+                }
+                ocean.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            // Animate pearl glow
+            if (temple) {
+                const pearl = temple.children.find(c => c.geometry && c.geometry.type === 'SphereGeometry');
+                if (pearl) {
+                    pearl.scale.setScalar(1 + Math.sin(Date.now() * 0.003) * 0.1);
+                }
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // === STORY & DIALOGUE SYSTEM ===
+        const story = [
+            // PROLOGUE
+            {
+                type: 'cutscene',
+                speaker: 'Narator',
+                text: 'Selju Island pernah menjadi permata Nusantara. Laut biru kristal, hutan hijau subur, nelayan tersenyum, anak-anak bermain...',
+                character: null,
+                background: 'sunny',
+                camera: { x: 0, y: 8, z: 20 }
+            },
+            {
+                type: 'cutscene',
+                speaker: 'Narator',
+                text: 'Di puncak pulau, Mutiara Manggara bercahaya terang, dijaga dalam kuil suci. Empat elemen hidup dalam harmoni.',
+                character: null,
+                camera: { x: 0, y: 10, z: 10 }
+            },
+            {
+                type: 'cutscene',
+                speaker: 'Narator',
+                text: 'Namun, kedamaian itu hancur ketika Lekok, seorang pemuda ambisius, menyusup ke kuil...',
+                character: null,
+                camera: { x: 0, y: 6, z: 8 }
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Lekok',
+                text: '"Maafkan aku... tapi aku akan menyelamatkan kita semua."',
+                character: 'lekok',
+                emotion: 'determined'
+            },
+            {
+                type: 'cutscene',
+                speaker: 'Narator',
+                text: 'Dengan mantra yang dipelajari diam-diam, Lekok mengambil mutiara dari altar suci.',
+                character: null,
+                effect: 'pearl_taken'
+            },
+            {
+                type: 'cutscene',
+                speaker: 'Narator',
+                text: 'Cahaya pulau meredup. Laut berubah gelap. Pohon layu dalam hitungan detik. Ikan-ikan mati terdampar.',
+                character: null,
+                background: 'cursed',
+                effect: 'island_cursed'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: '5 TAHUN KEMUDIAN...',
+                character: null,
+                background: 'dark'
+            },
+            // ACT I
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: 'Selju Island kini bayangan dari dirinya dulu. Pantai berpasir abu-abu, perahu terbengkalai, nelayan menganggur.',
+                character: null,
+                background: 'wasteland'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Aga',
+                text: 'Sudah 5 tahun... Aku masih mengingat kejayaan pulau ini. Ibu dan ayah kehilangan mata pencaharian. Tetangga sakit karena air tercemar.',
+                character: 'aga',
+                emotion: 'sad'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: 'Aga (17 tahun) sering duduk di tebing memandang laut yang mati, bermimpi mengembalikan kejayaan pulau.',
+                character: 'aga',
+                emotion: 'contemplative'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Liu Liu',
+                text: 'Aga! Aku menemukan sesuatu! Catatan kuno milik leluhur!',
+                character: 'liu_liu',
+                emotion: 'excited'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Aga',
+                text: 'Liu Liu? Ada apa dengan catatan itu?',
+                character: 'aga',
+                emotion: 'curious'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Liu Liu',
+                text: 'Mutiara Manggara masih ada! Lekok menyembunyikannya di empat lokasi tersembunyi. Ia memecah kekuatannya!',
+                character: 'liu_liu',
+                emotion: 'serious'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Aga',
+                text: 'Empat lokasi? Maksudnya...',
+                character: 'aga',
+                emotion: 'confused'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Liu Liu',
+                text: 'Manggata (Tanah), Manggair (Air), Manggadara (Udara), dan Manggapi (Api). Kita harus mengumpulkannya sebelum Lekok menyatukannya untuk kekuatan abadi!',
+                character: 'liu_liu',
+                emotion: 'determined'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: 'Dampar dan Kakin bergabung dalam perjalanan ini.',
+                character: null
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Dampar',
+                text: 'Aku kenal laut ini seperti telapak tanganku sendiri. Aku akan membantu melacak jejak Lekok!',
+                character: 'dampar',
+                emotion: 'brave'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Kakin',
+                text: 'Ini petualangan terbesar kita! Aku siap memanjat tebing, menyusup goa, apapun itu!',
+                character: 'kakin',
+                emotion: 'excited'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Aga',
+                text: 'Terima kasih, teman-teman. Bersama-sama, kita akan mengembalikan kejayaan Selju Island!',
+                character: 'aga',
+                emotion: 'determined'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: 'Mereka mencari Arong, roh penjaga yang masih tersisa. Di gua kuno, Arong muncul...',
+                character: null
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Arong',
+                text: 'Mutiara Manggara telah terpecah menjadi empat elemen. Untuk mengembalikannya, kalian harus melewati empat ujian.',
+                character: 'arong',
+                emotion: 'wise'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Arong',
+                text: 'Tapi ingat: setiap mutiara meminta harga. Apakah kalian siap berkorban untuk pulau ini?',
+                character: 'arong',
+                emotion: 'serious'
+            },
+            {
+                type: 'choice',
+                speaker: '',
+                text: 'Apa keputusanmu?',
+                choices: [
+                    'Kami siap! Selju Island adalah rumah kami!',
+                    'Apa harga yang harus kami bayar?',
+                    'Kami tidak punya pilihan. Ini satu-satunya jalan.'
+                ]
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Aga',
+                text: 'Kami siap! Apapun harganya, kami akan mengembalikan keseimbangan alam!',
+                character: 'aga',
+                emotion: 'determined'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Arong',
+                text: 'Baiklah. Perjalanan kalian dimulai dari Hutan Mati di utara. Carilah Manggata, Mutiara Tanah.',
+                character: 'arong',
+                emotion: 'wise'
+            },
+            {
+                type: 'dialogue',
+                speaker: 'Narator',
+                text: 'Dan demikianlah, petualangan Aga dan teman-teman dimulai. Empat mutiara, empat ujian, satu tujuan: menyelamatkan Selju Island.',
+                character: null
+            },
+            {
+                type: 'ending',
+                speaker: '',
+                text: 'Episode 1: Selesai\n\nEpisode 2: Manggata - Mutiara Tanah\nSegera Hadir...',
+                character: null
+            }
+        ];
+        
+        // === CHARACTER IMAGES (Base64 placeholder - ganti dengan gambar kamu) ===
+        const characterImages = {
+            'aga': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%238B4513" width="200" height="400"/><circle fill="%23FDB" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">AGA</text></svg>',
+            'liu_liu': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%232E8B57" width="200" height="400"/><circle fill="%23FDB" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">LIU LIU</text></svg>',
+            'dampar': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%234169E1" width="200" height="400"/><circle fill="%23FDB" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">DAMPAR</text></svg>',
+            'kakin': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%23FF6347" width="200" height="400"/><circle fill="%23FDB" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">KAKIN</text></svg>',
+            'arong': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%234B0082" width="200" height="400"/><circle fill="%23DDD" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">ARONG</text></svg>',
+            'lekok': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400"><rect fill="%232F4F4F" width="200" height="400"/><circle fill="%23FDB" cx="100" cy="80" r="50"/><text x="100" y="250" font-size="20" fill="white" text-anchor="middle">LEKOK</text></svg>'
+        };
+        
+        // === DIALOGUE SYSTEM ===
+        function nextDialogue() {
+            if (currentScene >= story.length) return;
+            
+            const scene = story[currentScene];
+            
+            // Update dialogue box
+            document.getElementById('speaker-name').textContent = scene.speaker;
+            document.getElementById('dialogue-text').textContent = scene.text;
+            document.getElementById('dialogue-box').style.display = 'block';
+            
+            // Update character sprite
+            if (scene.character) {
+                const spriteDiv = document.getElementById('character-sprite');
+                spriteDiv.innerHTML = `<img src="${characterImages[scene.character]}" style="height: 100%; width: auto;">`;
+                spriteDiv.style.display = 'block';
+            } else {
+                document.getElementById('character-sprite').style.display = 'none';
+            }
+            
+            // Update camera for cutscenes
+            if (scene.camera && camera) {
+                camera.position.x = scene.camera.x;
+                camera.position.y = scene.camera.y;
+                camera.position.z = scene.camera.z;
+                camera.lookAt(0, 3, 0);
+            }
+            
+            // Handle effects
+            if (scene.effect === 'island_cursed') {
+                scene.background = new THREE.Color(0x2F4F4F);
+                ocean.material.color.setHex(0x1a1a2e);
+                island.material.color.setHex(0x4a4a4a);
+            }
+            
+            // Show choices if needed
+            if (scene.type === 'choice') {
+                showChoices(scene.choices);
+            }
+            
+            currentScene++;
+        }
+        
+        function showChoices(choices) {
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+            choicesDiv.style.display = 'flex';
+            
+            choices.forEach((choice, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = choice;
+                btn.onclick = () => makeChoice(index);
+                choicesDiv.appendChild(btn);
+            });
+            
+            document.getElementById('dialogue-box').style.pointerEvents = 'none';
+        }
+        
+        function makeChoice(choiceIndex) {
+            document.getElementById('choices').style.display = 'none';
+            document.getElementById('dialogue-box').style.pointerEvents = 'auto';
+            
+            // Logika pilihan (bisa dikembangkan)
+            const responses = [
+                'Semangat! Kita pasti bisa!',
+                'Kita harus berhati-hati...',
+                'Mari kita lakukan ini bersama.'
+            ];
+            
+            console.log('Choice:', responses[choiceIndex]);
+            nextDialogue();
+        }
+        
+        function skipScene() {
+            currentScene = story.length;
+            document.getElementById('dialogue-box').style.display = 'none';
+            document.getElementById('character-sprite').style.display = 'none';
+            document.getElementById('choices').style.display = 'none';
+        }
+        
+        // === START GAME ===
+        function startGame() {
+            document.getElementById('title-screen').style.display = 'none';
+            initThreeJS();
+            setTimeout(() => {
+                nextDialogue();
+            }, 1000);
+        }
+        
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+    </script>
 </body>
 </html>
